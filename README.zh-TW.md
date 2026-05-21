@@ -1,110 +1,93 @@
 # ClipOCR
 
-ClipOCR ?臭???Raycast extension嚗隞亙 Windows 銝??貉撟??蒂颲刻?????????Windows Screen Snip嚗??芾票蝪踹?敺??雿輻?祆? Tesseract OCR 颲刻?嚗?敺?蝯?銴ˊ?鞎潛倏??
-??獢??macOS ??Easy OCR ???Windows ??蝘餅???
-## ?
+ClipOCR 可以在 Windows 上框選螢幕區域並辨識文字。它會開啟 Windows Screen Snip，從剪貼簿讀取截圖，使用本機 Tesseract OCR 辨識，最後把結果複製回剪貼簿。
 
-- 雿輻 Windows Screen Snip 獢???OCR
-- ???祆? Tesseract ?瑁? OCR
-- ?舀 `chi_tra+eng` ??銝剛?毽?儘霅?- ?航身摰?Tesseract page segmentation mode
-- ?舫?葉??暺耨甇??撣貉? OCR 璅?隤文靽格迤
-- ?航身摰?銵??撘?蝛箇????銵?頧? `<br>`
+這個 extension 需要本機安裝 Tesseract binary 才能運作。
 
-## ?瘙?
-- Raycast for Windows
-- ?祆?撌脣?鋆?Tesseract OCR
-- 撌脣?鋆?颲刻?隤???Tesseract language data
+## Tesseract
 
-## 摰? Tesseract
+Tesseract 是開源 OCR 引擎，需要安裝在你的電腦上。
 
-Windows ?舐 winget 摰?嚗?
+Windows 建議安裝方式：
+
 ```powershell
 winget install UB-Mannheim.TesseractOCR
 ```
 
-?身 Tesseract ?瑁?瑼楝敺?
+安裝後可以用 PowerShell 確認：
+
+```powershell
+& "C:\Program Files\Tesseract-OCR\tesseract.exe" -v
+```
+
+如果看到類似下面的輸出，就表示安裝成功：
+
+```text
+tesseract 5.5.0
+```
+
+ClipOCR 預設使用的 Tesseract 路徑是：
 
 ```text
 C:\Program Files\Tesseract-OCR\tesseract.exe
 ```
 
-蝣箄?摰???嚗?
-```powershell
-& "C:\Program Files\Tesseract-OCR\tesseract.exe" -v
-```
+如果你的 Tesseract 安裝在其他位置，請到 Raycast 裡更新 `Tesseract binary path` 設定。
 
-## 摰?隤?瑼?
-Tesseract ?虜?身?芣??望??閬儘霅?擃葉??隢?頛?`chi_tra.traineddata` 銝行?堆?
+## Tesseract 語言檔
+
+Tesseract 只能辨識已安裝 `.traineddata` 的語言。
+
+英文通常會隨 Tesseract 一起安裝。若要辨識繁體中文，請下載 `chi_tra.traineddata`，並放到：
 
 ```text
 C:\Program Files\Tesseract-OCR\tessdata
 ```
 
-撱箄降靘?嚗?
-- ?漲頛翰??獢?撠?https://github.com/tesseract-ocr/tessdata_fast
-- ?虜頛???頛嚗ttps://github.com/tesseract-ocr/tessdata_best
+可以選擇：
 
-憒?閬儘霅?銝剖??望?嚗?蝣箄????獢摮嚗?
-```text
-C:\Program Files\Tesseract-OCR\tessdata\chi_tra.traineddata
-C:\Program Files\Tesseract-OCR\tessdata\eng.traineddata
-```
+- `tessdata_fast`：檔案較小、速度較快
+- `tessdata_best`：檔案較大、速度較慢，但通常更準
 
-?亦??桀??舐隤?嚗?
+官方語言檔來源：
+
+- https://github.com/tesseract-ocr/tessdata_fast
+- https://github.com/tesseract-ocr/tessdata_best
+
+安裝語言檔後，可以確認目前可用語言：
+
 ```powershell
 & "C:\Program Files\Tesseract-OCR\tesseract.exe" --list-langs
 ```
 
-## 撱箄降閮剖?
-
-蝜葉???
+若要辨識繁中加英文，請把 ClipOCR 的 `Tesseract language` 設為：
 
 ```text
-Tesseract language: chi_tra+eng
+chi_tra+eng
 ```
 
-蝪∩葉???
+## 使用方式
+
+在 Raycast 執行 `Area OCR`，用 Windows Screen Snip 框選要辨識的區域，等待成功提示後，辨識結果就會複製到剪貼簿。
+
+大多數框選文字建議使用 `Single uniform block of text`。如果只辨識標題、標籤或單行文字，可以改用 `Single text line`。
+
+辨識繁體中文或繁中英文混合內容時，建議開啟 `Chinese punctuation cleanup`，它會修正常見的 OCR 標點誤判。
+
+## 常見問題
+
+如果出現找不到 Tesseract 的錯誤，請先確認 Tesseract 可以執行：
+
+```powershell
+& "C:\Program Files\Tesseract-OCR\tesseract.exe" -v
+```
+
+如果 Tesseract 已安裝，但 ClipOCR 還是找不到，請到 Raycast 裡更新 `Tesseract binary path` 設定。
+
+如果繁體中文無法辨識，請確認 `chi_tra.traineddata` 存在於：
 
 ```text
-Tesseract language: chi_sim+eng
+C:\Program Files\Tesseract-OCR\tessdata
 ```
 
-Page segmentation mode嚗?
-- `Single uniform block of text`嚗??祆挾?質?憭獢???遣霅圈?閮?- `Single text line`嚗?銵?憿???蝐扎”?澆??- `Fully automatic page segmentation`嚗??憭扼??Ｚ?銴????- `Sparse text`嚗??摮?????????憓?
-颲刻?銝剜??葉?望毽?摰寞?嚗遣霅圈???`Chinese punctuation cleanup`?????扳?暺椰?唾?憓耨甇?虜閬?敶Ｘ?暺?隞亙??典? OCR 撣貉?璅?隤文??
-## 雿輻?孵?
-
-1. ??Raycast ?瑁? `Area OCR`??2. ??Windows Screen Snip 獢閬儘霅????3. 蝑????內??4. 颲刻?蝯????鋆賢?芾票蝪踴?
-## ?
-
-摰?靘陷嚗?
-```powershell
-npm install
-```
-
-???璅∪?嚗?
-```powershell
-npm run dev
-```
-
-銝??霅?
-
-```powershell
-npm run lint
-npm run build
-```
-
-?澆?嚗?
-```powershell
-npm run publish
-```
-
-## ??圾
-
-憒??曆???Tesseract嚗???Raycast extension preferences ??`Tesseract binary path` 閮剔嚗?
-```text
-C:\Program Files\Tesseract-OCR\tesseract.exe
-```
-
-憒?銝剜??⊥?颲刻?嚗?蝣箄? `chi_tra.traineddata` ??`chi_sim.traineddata` 撌脫??Tesseract ??`tessdata` 鞈?憭橘?銝??箇??`tesseract --list-langs`??
-憒??臬???暺儘霅?雿喉??臭誑?岫??`tessdata_fast` ?? `tessdata_best`??
+如果辨識錯字較多，可以嘗試把 `tessdata_fast` 換成 `tessdata_best`。

@@ -1,135 +1,93 @@
 # ClipOCR
 
-ClipOCR is a Raycast extension that extracts text from a selected screen area on Windows. It opens Windows Screen Snip, saves the captured image from the clipboard, runs local Tesseract OCR, and copies the recognized text back to your clipboard.
+ClipOCR extracts text from a selected screen area on Windows. It opens Windows Screen Snip, reads the captured image from the clipboard, runs local Tesseract OCR, and copies the recognized text back to your clipboard.
 
-This extension is a Windows-friendly port inspired by the original ClipOCR extension for macOS.
+This extension requires a local Tesseract binary in order to work.
 
-## Features
+## Tesseract
 
-- Area OCR with Windows Screen Snip
-- Local OCR through Tesseract
-- Mixed-language OCR such as `chi_tra+eng`
-- Configurable Tesseract page segmentation mode
-- Optional cleanup for Chinese punctuation and common OCR punctuation mistakes
-- Newline handling for plain text, preserved newlines, or `<br>` output
+Tesseract is an open source OCR engine, and it needs to be installed locally on your machine.
 
-## Requirements
-
-- Raycast for Windows
-- Tesseract OCR installed locally
-- Tesseract language data for every language you want to recognize
-
-## Install Tesseract
-
-Install Tesseract on Windows:
+Recommended Windows installation:
 
 ```powershell
 winget install UB-Mannheim.TesseractOCR
 ```
 
-The default Tesseract binary path is:
-
-```text
-C:\Program Files\Tesseract-OCR\tesseract.exe
-```
-
-Verify the installation:
+After installing, verify that Tesseract works:
 
 ```powershell
 & "C:\Program Files\Tesseract-OCR\tesseract.exe" -v
 ```
 
-## Install Language Data
-
-Tesseract usually installs English by default. For Traditional Chinese, download `chi_tra.traineddata` and place it in:
+If you get a response similar to this, you should be good to go:
 
 ```text
-C:\Program Files\Tesseract-OCR\tessdata
+tesseract 5.5.0
 ```
 
-Recommended language data:
-
-- Fast, smaller, quicker: https://github.com/tesseract-ocr/tessdata_fast
-- Best, larger, usually more accurate: https://github.com/tesseract-ocr/tessdata_best
-
-For mixed Traditional Chinese and English OCR, install both:
-
-```text
-C:\Program Files\Tesseract-OCR\tessdata\chi_tra.traineddata
-C:\Program Files\Tesseract-OCR\tessdata\eng.traineddata
-```
-
-Verify available languages:
-
-```powershell
-& "C:\Program Files\Tesseract-OCR\tesseract.exe" --list-langs
-```
-
-## Recommended Settings
-
-For Traditional Chinese and English:
-
-```text
-Tesseract language: chi_tra+eng
-```
-
-For Simplified Chinese and English:
-
-```text
-Tesseract language: chi_sim+eng
-```
-
-Page segmentation mode:
-
-- `Single uniform block of text`: best default for selected paragraphs and most snippets
-- `Single text line`: best for one-line titles, labels, buttons, or table cells
-- `Fully automatic page segmentation`: useful for larger, more complex screenshots
-- `Sparse text`: useful when text is scattered across the selected image
-
-Keep `Chinese punctuation cleanup` enabled for Chinese or mixed Chinese-English text. It normalizes common half-width punctuation around Chinese text and fixes a few frequent OCR punctuation mistakes.
-
-## Usage
-
-1. Run the `Area OCR` command in Raycast.
-2. Select a screen area using Windows Screen Snip.
-3. Wait for the success toast.
-4. Paste the recognized text from the clipboard.
-
-## Development
-
-Install dependencies:
-
-```powershell
-npm install
-```
-
-Start the extension in development mode:
-
-```powershell
-npm run dev
-```
-
-Validate before publishing:
-
-```powershell
-npm run lint
-npm run build
-```
-
-Publish:
-
-```powershell
-npm run publish
-```
-
-## Troubleshooting
-
-If Tesseract is not found, set `Tesseract binary path` in Raycast preferences to:
+The default Tesseract binary path used by ClipOCR is:
 
 ```text
 C:\Program Files\Tesseract-OCR\tesseract.exe
 ```
 
-If Chinese is not recognized, make sure `chi_tra.traineddata` or `chi_sim.traineddata` exists in the Tesseract `tessdata` folder and appears in `tesseract --list-langs`.
+If your Tesseract is installed somewhere else, update the `Tesseract binary path` preference in Raycast.
 
-If punctuation or OCR accuracy is poor, try replacing `tessdata_fast` files with `tessdata_best` files.
+## Tesseract Languages
+
+Tesseract only recognizes languages that have matching `.traineddata` files installed on your machine.
+
+English is usually installed with Tesseract. For Traditional Chinese, download `chi_tra.traineddata` and place it in:
+
+```text
+C:\Program Files\Tesseract-OCR\tessdata
+```
+
+You can use either:
+
+- `tessdata_fast`: smaller and faster
+- `tessdata_best`: larger, slower, and usually more accurate
+
+Official language data repositories:
+
+- https://github.com/tesseract-ocr/tessdata_fast
+- https://github.com/tesseract-ocr/tessdata_best
+
+After installing language data, verify the available languages:
+
+```powershell
+& "C:\Program Files\Tesseract-OCR\tesseract.exe" --list-langs
+```
+
+For mixed Traditional Chinese and English OCR, set ClipOCR's `Tesseract language` preference to:
+
+```text
+chi_tra+eng
+```
+
+## Usage
+
+Run the `Area OCR` command in Raycast, select a screen area with Windows Screen Snip, and wait for the success toast. The recognized text will be copied to your clipboard.
+
+For most selected text snippets, `Single uniform block of text` is the recommended page segmentation mode. If you are recognizing a title, label, or one-line snippet, try `Single text line`.
+
+Keep `Chinese punctuation cleanup` enabled when recognizing Traditional Chinese or mixed Traditional Chinese-English text. It normalizes common punctuation mistakes from OCR output.
+
+## Possible Problems
+
+If you get a Tesseract not found error, make sure it is installed by running:
+
+```powershell
+& "C:\Program Files\Tesseract-OCR\tesseract.exe" -v
+```
+
+If Tesseract is installed but ClipOCR still cannot find it, update the `Tesseract binary path` preference in Raycast.
+
+If Traditional Chinese is not recognized, make sure `chi_tra.traineddata` exists in:
+
+```text
+C:\Program Files\Tesseract-OCR\tessdata
+```
+
+If OCR accuracy is poor, try using `tessdata_best` instead of `tessdata_fast`.
