@@ -3,40 +3,43 @@ import { unlink } from "fs/promises";
 import tesseractOcr from "./ocr";
 import utils from "./utils";
 import takeScreenshot, { isScreenshotCancelledError } from "./screenshot";
-import { detect, LanguageCodeFormat } from "raycast-language-detector";
 import type { Preferences } from "./preferences";
 
 export default async function main() {
-  const isTesseractInstalled = await utils.isTesseractInstalled();
-
-  if (!isTesseractInstalled) {
-    await showToast({
-      style: Toast.Style.Failure,
-      title: "Tesseract not found, check README!",
-      message: "Tesseract path not found or it is not installed, check README for more info!",
-    });
-    return;
-  }
-
-  let defaultLangCode = getPreferenceValues<Preferences>().tesseract_lang.toLowerCase().replace(/\s+/g, "");
-
-  // Fall back to English if the configured language code is invalid.
-  if (!utils.isValidLanguage(defaultLangCode)) {
-    defaultLangCode = "eng";
-  }
-
   await closeMainWindow();
 
-  const toast = await showToast({
+  const toastPromise = showToast({
     style: Toast.Style.Animated,
     title: "Select an area",
     message: "Use Windows Screen Snip to capture the text area.",
   });
+  const screenshotPromise = takeScreenshot();
+  screenshotPromise.catch(() => undefined);
+  const toast = await toastPromise;
 
   let filePath: string | undefined;
 
   try {
-    filePath = await takeScreenshot();
+    filePath = await screenshotPromise;
+    toast.title = "Checking OCR setup";
+    toast.message = "Looking for local Tesseract.";
+
+    const isTesseractInstalled = await utils.isTesseractInstalled();
+
+    if (!isTesseractInstalled) {
+      toast.style = Toast.Style.Failure;
+      toast.title = "Tesseract not found, check README!";
+      toast.message = "Tesseract path not found or it is not installed, check README for more info!";
+      return;
+    }
+
+    let defaultLangCode = getPreferenceValues<Preferences>().tesseract_lang.toLowerCase().replace(/\s+/g, "");
+
+    // Fall back to English if the configured language code is invalid.
+    if (!utils.isValidLanguage(defaultLangCode)) {
+      defaultLangCode = "eng";
+    }
+
     toast.title = "Recognizing text";
     toast.message = "Running local Tesseract OCR.";
 
@@ -98,6 +101,8 @@ async function autoDetectedLanguage(text: string) {
   if (!getPreferenceValues<Preferences>().autodetect_lang) {
     return;
   }
+
+  const { detect, LanguageCodeFormat } = await import("raycast-language-detector");
 
   // Detect language
   return detect(text, {

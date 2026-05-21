@@ -44,6 +44,8 @@ function isExitCode(error: unknown, exitCode: number) {
 }
 
 async function takeWindowsScreenshot(filePath: string) {
+  startWindowsScreenSnip();
+
   const script = `
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms
@@ -51,11 +53,18 @@ Add-Type -AssemblyName System.Drawing
 Add-Type -TypeDefinition @"
 using System.Runtime.InteropServices;
 
-public static class ClipboardNative {
+public static class NativeMethods {
   [DllImport("user32.dll")]
   public static extern uint GetClipboardSequenceNumber();
+
+  [DllImport("user32.dll")]
+  public static extern short GetAsyncKeyState(int vKey);
 }
 "@
+
+function Test-EscapePressed {
+  return ([NativeMethods]::GetAsyncKeyState(0x1B) -band 0x8001) -ne 0
+}
 
 function Get-ClipboardImagePngBytes {
   try {
@@ -81,65 +90,27 @@ function Get-ClipboardImagePngBytes {
   }
 }
 
-function Get-ScreenClipProcessIds {
-  $ids = @()
-  foreach ($name in @("ScreenClippingHost", "SnippingTool")) {
-    $ids += @(Get-Process -Name $name -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
-  }
-  return $ids
-}
-
-function Test-NewScreenClipProcess {
-  param([int[]]$InitialProcessIds)
-
-  foreach ($id in @(Get-ScreenClipProcessIds)) {
-    if ($InitialProcessIds -notcontains $id) {
-      return $true
-    }
-  }
-
-  return $false
-}
-
 $outputPath = $env:RAYCAST_OCR_OUTPUT
 $timeoutSeconds = 30
 if ($env:RAYCAST_OCR_TIMEOUT) {
   $timeoutSeconds = [int]$env:RAYCAST_OCR_TIMEOUT
 }
 
-$initialSequenceNumber = [ClipboardNative]::GetClipboardSequenceNumber()
-$initialScreenClipProcessIds = @(Get-ScreenClipProcessIds)
-$screenClipSeen = $false
-$screenClipClosedAt = $null
-$cancelGraceMilliseconds = 750
-
-try {
-  Start-Process "ms-screenclip:"
-} catch {
-  Start-Process "explorer.exe" "ms-screenclip:"
-}
+$initialSequenceNumber = [NativeMethods]::GetClipboardSequenceNumber()
 
 $deadline = (Get-Date).AddSeconds($timeoutSeconds)
 while ((Get-Date) -lt $deadline) {
   $bytes = Get-ClipboardImagePngBytes
-  $sequenceNumber = [ClipboardNative]::GetClipboardSequenceNumber()
+  $sequenceNumber = [NativeMethods]::GetClipboardSequenceNumber()
 
   if ($null -ne $bytes -and $sequenceNumber -ne $initialSequenceNumber) {
     [System.IO.File]::WriteAllBytes($outputPath, $bytes)
     exit 0
   }
 
-  $screenClipRunning = Test-NewScreenClipProcess -InitialProcessIds $initialScreenClipProcessIds
-  if ($screenClipRunning) {
-    $screenClipSeen = $true
-    $screenClipClosedAt = $null
-  } elseif ($screenClipSeen) {
-    if ($null -eq $screenClipClosedAt) {
-      $screenClipClosedAt = Get-Date
-    } elseif (((Get-Date) - $screenClipClosedAt).TotalMilliseconds -ge $cancelGraceMilliseconds) {
-      [Console]::Error.WriteLine("Screen Snip was canceled.")
-      exit ${SCREENSHOT_CANCELLED_EXIT_CODE}
-    }
+  if (Test-EscapePressed) {
+    [Console]::Error.WriteLine("Screen Snip was canceled.")
+    exit ${SCREENSHOT_CANCELLED_EXIT_CODE}
   }
 
   Start-Sleep -Milliseconds 100
@@ -164,4 +135,8 @@ exit 2
       windowsHide: true,
     }
   );
+}
+
+function startWindowsScreenSnip() {
+  execFile("explorer.exe", ["ms-screenclip:"], { windowsHide: true }, () => undefined);
 }
