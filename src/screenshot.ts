@@ -14,10 +14,8 @@ export default async function takeScreenshot() {
   try {
     if (process.platform === "win32") {
       await takeWindowsScreenshot(filePath);
-    } else if (process.platform === "darwin") {
-      await execFilePromise("/usr/sbin/screencapture", ["-i", filePath]);
     } else {
-      throw new Error("Easy OCR only supports Windows and macOS screenshots.");
+      throw new Error("ClipOCR only supports Windows screenshots.");
     }
   } catch (e) {
     await showFailureToast(e, { title: "Failed to capture screenshot" });
