@@ -1,4 +1,6 @@
 import { Clipboard, closeMainWindow, getPreferenceValues, showToast, Toast } from "@raycast/api";
+import { showFailureToast } from "@raycast/utils";
+import { unlink } from "fs/promises";
 import tesseractOcr from "./ocr";
 import utils from "./utils";
 import takeScreenshot from "./screenshot";
@@ -19,7 +21,7 @@ export default async function main() {
 
   let defaultLangCode = getPreferenceValues<Preferences>().tesseract_lang.toLowerCase().replace(/\s+/g, "");
 
-  // Fallback to English if user hasn't provided valid language is provided in extension options
+  // Fall back to English if the configured language code is invalid.
   if (!utils.isValidLanguage(defaultLangCode)) {
     defaultLangCode = "eng";
   }
@@ -41,7 +43,7 @@ export default async function main() {
 
     let languageUsed = defaultLangCode;
 
-    if (!text) {
+    if (!text.trim()) {
       await showToast({
         style: Toast.Style.Failure,
         title: `No text found on image!`,
@@ -57,12 +59,19 @@ export default async function main() {
       utils.isValidLanguage(autodetectLanguage?.languageCode) &&
       autodetectLanguage?.languageCode !== defaultLangCode
     ) {
-      text = await tesseractOcr(filePath, autodetectLanguage?.languageCode);
-      text = utils.normalizeChinesePunctuation(text);
-      text = utils.handleNewLines(text);
-    }
+      try {
+        let detectedText = await tesseractOcr(filePath, autodetectLanguage.languageCode);
+        detectedText = utils.normalizeChinesePunctuation(detectedText);
+        detectedText = utils.handleNewLines(detectedText);
 
-    languageUsed = autodetectLanguage?.languageName ?? languageUsed;
+        if (detectedText.trim()) {
+          text = detectedText;
+          languageUsed = autodetectLanguage.languageName ?? autodetectLanguage.languageCode;
+        }
+      } catch {
+        languageUsed = defaultLangCode;
+      }
+    }
 
     await Clipboard.copy(text);
     await showToast({
@@ -71,11 +80,9 @@ export default async function main() {
       message: `Text copied to clipboard! Language: ${languageUsed}`,
     });
   } catch (e) {
-    await showToast({
-      style: Toast.Style.Failure,
-      title: "Failed to OCR the image!",
-      message: "Failed to OCR the image!",
-    });
+    await showFailureToast(e, { title: "Failed to OCR the image" });
+  } finally {
+    await removeTemporaryFile(filePath);
   }
 }
 
@@ -88,4 +95,12 @@ async function autoDetectedLanguage(text: string) {
   return detect(text, {
     languageCodeFormat: LanguageCodeFormat.ISO_639_3,
   });
+}
+
+async function removeTemporaryFile(filePath: string) {
+  try {
+    await unlink(filePath);
+  } catch {
+    // The OCR result is more important than failing on best-effort cleanup.
+  }
 }

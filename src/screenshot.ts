@@ -30,6 +30,14 @@ async function takeWindowsScreenshot(filePath: string) {
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Add-Type -TypeDefinition @"
+using System.Runtime.InteropServices;
+
+public static class ClipboardNative {
+  [DllImport("user32.dll")]
+  public static extern uint GetClipboardSequenceNumber();
+}
+"@
 
 function Get-ClipboardImagePngBytes {
   try {
@@ -55,27 +63,13 @@ function Get-ClipboardImagePngBytes {
   }
 }
 
-function Get-Sha256Base64($bytes) {
-  if ($null -eq $bytes) {
-    return $null
-  }
-
-  $sha = [System.Security.Cryptography.SHA256]::Create()
-  try {
-    return [Convert]::ToBase64String($sha.ComputeHash($bytes))
-  } finally {
-    $sha.Dispose()
-  }
-}
-
 $outputPath = $env:RAYCAST_OCR_OUTPUT
 $timeoutSeconds = 30
 if ($env:RAYCAST_OCR_TIMEOUT) {
   $timeoutSeconds = [int]$env:RAYCAST_OCR_TIMEOUT
 }
 
-$initialBytes = Get-ClipboardImagePngBytes
-$initialHash = Get-Sha256Base64 $initialBytes
+$initialSequenceNumber = [ClipboardNative]::GetClipboardSequenceNumber()
 
 try {
   Start-Process "ms-screenclip:"
@@ -86,9 +80,9 @@ try {
 $deadline = (Get-Date).AddSeconds($timeoutSeconds)
 while ((Get-Date) -lt $deadline) {
   $bytes = Get-ClipboardImagePngBytes
-  $hash = Get-Sha256Base64 $bytes
+  $sequenceNumber = [ClipboardNative]::GetClipboardSequenceNumber()
 
-  if ($null -ne $bytes -and $hash -ne $initialHash) {
+  if ($null -ne $bytes -and $sequenceNumber -ne $initialSequenceNumber) {
     [System.IO.File]::WriteAllBytes($outputPath, $bytes)
     exit 0
   }
