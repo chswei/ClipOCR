@@ -1,9 +1,8 @@
 import { Clipboard, closeMainWindow, getPreferenceValues, showToast, Toast } from "@raycast/api";
-import { showFailureToast } from "@raycast/utils";
 import { unlink } from "fs/promises";
 import tesseractOcr from "./ocr";
 import utils from "./utils";
-import takeScreenshot from "./screenshot";
+import takeScreenshot, { isScreenshotCancelledError } from "./screenshot";
 import { detect, LanguageCodeFormat } from "raycast-language-detector";
 import type { Preferences } from "./preferences";
 
@@ -28,15 +27,19 @@ export default async function main() {
 
   await closeMainWindow();
 
-  await showToast({
+  const toast = await showToast({
     style: Toast.Style.Animated,
     title: "Select an area",
     message: "Use Windows Screen Snip to capture the text area.",
   });
 
-  const filePath = await takeScreenshot();
+  let filePath: string | undefined;
 
   try {
+    filePath = await takeScreenshot();
+    toast.title = "Recognizing text";
+    toast.message = "Running local Tesseract OCR.";
+
     let text = await tesseractOcr(filePath, defaultLangCode);
     text = utils.normalizeChinesePunctuation(text);
     text = utils.handleNewLines(text);
@@ -44,11 +47,9 @@ export default async function main() {
     let languageUsed = defaultLangCode;
 
     if (!text.trim()) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: `No text found on image!`,
-        message: `No text found on image!`,
-      });
+      toast.style = Toast.Style.Failure;
+      toast.title = "No text found on image!";
+      toast.message = undefined;
       return;
     }
 
@@ -74,15 +75,22 @@ export default async function main() {
     }
 
     await Clipboard.copy(text);
-    await showToast({
-      style: Toast.Style.Success,
-      title: `Text copied to clipboard! Language: ${languageUsed}`,
-      message: `Text copied to clipboard! Language: ${languageUsed}`,
-    });
+    toast.style = Toast.Style.Success;
+    toast.title = `Text copied to clipboard! Language: ${languageUsed}`;
+    toast.message = `Text copied to clipboard! Language: ${languageUsed}`;
   } catch (e) {
-    await showFailureToast(e, { title: "Failed to OCR the image" });
+    if (isScreenshotCancelledError(e)) {
+      await toast.hide();
+      return;
+    }
+
+    toast.style = Toast.Style.Failure;
+    toast.title = filePath ? "Failed to OCR the image" : "Failed to capture screenshot";
+    toast.message = getErrorMessage(e);
   } finally {
-    await removeTemporaryFile(filePath);
+    if (filePath) {
+      await removeTemporaryFile(filePath);
+    }
   }
 }
 
@@ -103,4 +111,12 @@ async function removeTemporaryFile(filePath: string) {
   } catch {
     // The OCR result is more important than failing on best-effort cleanup.
   }
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
 }
